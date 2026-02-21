@@ -1,0 +1,21 @@
+# Infant Growth Digital Twin v3.0 — ML+WHO Hybrid
+# Production dependencies for Render deployment
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+
+# ML / Scientific
+scikit-learn==1.6.1
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.14.1
+xgboost==2.1.3
+
+# Data ingestion
+requests==2.32.3
+pyarrow==18.1.0
+
+# Utilities
+python-multipart==0.0.20

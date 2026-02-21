@@ -1,0 +1,16 @@
+# Render.com deployment configuration
+# Infant Growth Digital Twin v3.0 — ML+WHO Hybrid
+
+services:
+  - type: web
+    name: infant-growth-ml-who-hybrid
+    runtime: docker
+    repo: https://github.com/neerajpandey1974/infant-growth-ml-who-hybrid
+    branch: main
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: PYTHONUNBUFFERED
+        value: "1"

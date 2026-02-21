@@ -1,0 +1,9 @@
+[project]
+name = "infant-growth-ml-who-hybrid"
+version = "3.0.0"
+description = "Multi-Method ML + WHO Growth Standards Hybrid Prediction System for Infant Growth Monitoring (0-36 months)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

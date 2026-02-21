@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (large files — downloaded at build time)
+data/raw/*.xpt
+data/raw/*.XPT
+*.parquet
+
+# Models (trained at build time)
+data/models/*.pkl
+data/models/*.json
+data/models/*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local

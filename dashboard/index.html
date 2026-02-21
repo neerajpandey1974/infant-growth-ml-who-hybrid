@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infant Growth Digital Twin — Clinical Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+:root {
+    --bg: #0c1017;
+    --surface: #141a24;
+    --surface-2: #1a2233;
+    --border: #253045;
+    --text: #e8ecf2;
+    --text-muted: #7d8ca1;
+    --accent: #4fc3f7;
+    --accent-dim: rgba(79,195,247,0.12);
+    --green: #66bb6a;
+    --green-dim: rgba(102,187,106,0.12);
+    --amber: #ffa726;
+    --amber-dim: rgba(255,167,38,0.12);
+    --red: #ef5350;
+    --red-dim: rgba(239,83,80,0.12);
+    --purple: #ab47bc;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+
+/* Header */
+header {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+header h1 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+header h1 .icon { font-size: 1.4em; }
+header .version {
+    font-size: 0.7rem;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-weight: 600;
+}
+.status-bar {
+    display: flex;
+    gap: 20px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.status-bar .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 5px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Layout */
+.container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: calc(100vh - 56px);
+}
+
+/* Sidebar */
+.sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px;
+}
+.sidebar h3 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+.form-group { margin-bottom: 14px; }
+.form-group label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+input, select {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    transition: border-color 0.15s;
+}
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+}
+.btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+}
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-secondary {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); }
+
+.divider {
+    height: 1px;
+    background: var(--border);
+    margin: 18px 0;
+}
+
+/* Observation list */
+.obs-list { margin-top: 10px; }
+.obs-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+}
+.obs-item .metric-tag {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.obs-item .metric-tag.weight { background: var(--accent-dim); color: var(--accent); }
+.obs-item .metric-tag.length { background: var(--green-dim); color: var(--green); }
+.obs-item .metric-tag.head { background: var(--purple); color: #fff; opacity: 0.8; }
+
+/* Main */
+.main {
+    overflow-y: auto;
+    padding: 24px;
+}
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+}
+.card .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.card .value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+.card .sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Chart area */
+.chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.chart-section h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.chart-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.chip {
+    padding: 6px 14px;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.chip.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+.chip:hover { border-color: var(--accent); }
+
+/* Alerts */
+.alert-list { margin-top: 10px; }
+.alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+}
+.alert.warning { background: var(--amber-dim); border-left: 3px solid var(--amber); }
+.alert.critical { background: var(--red-dim); border-left: 3px solid var(--red); }
+.alert.info { background: var(--accent-dim); border-left: 3px solid var(--accent); }
+.alert .icon { font-size: 1.1em; }
+
+/* Comparison table */
+.table-wrap { overflow-x: auto; }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+th, td { padding: 10px 12px; text-align: left; }
+th {
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+td { border-bottom: 1px solid rgba(255,255,255,0.04); }
+tr:hover td { background: rgba(79,195,247,0.04); }
+tr.best td { background: var(--accent-dim); }
+
+/* Empty state */
+.empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+}
+.empty .icon { font-size: 2.4rem; margin-bottom: 12px; }
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 0.82rem;
+    box-shadow: var(--shadow);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.error { border-color: var(--red); }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .container { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>
+        <span class="icon">🧒</span>
+        Infant Growth Digital Twin
+        <span class="version">v3.0 ML+WHO</span>
+    </h1>
+    <div class="status-bar">
+        <span><span class="dot"></span> <span id="statusText">Connecting...</span></span>
+        <span class="mono" id="modelBadge">—</span>
+    </div>
+</header>
+
+<div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h3>👶 Register Infant</h3>
+        <div class="form-group">
+            <label>Infant ID</label>
+            <input type="text" id="infantId" placeholder="e.g. baby-001" />
+        </div>
+        <div class="row-2">
+            <div class="form-group">
+                <label>Sex</label>
+                <select id="infantSex">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Birth Weight (kg)</label>
+                <input type="number" id="birthWeight" step="0.1" placeholder="3.5" />
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="createInfant()">＋ Register</button>
+
+        <div class="divider"></div>
+
+        <h3>📏 Record Observation</h3>
+        <div class="form-group">
+            <label>Metric</label>
+            <select id="obsMetric">
+                <option value="weight_for_age">Weight (kg)</option>
+                <option value="length_for_age">Length (cm)</option>
+                <option value="head_circumference_for_age">Head Circ (cm)</option>
+            </select>
+        </div>
+        <div class="row-2">
+            <div class="form-group">
+                <label>Age (months)</label>
+                <input type="number" id="obsAge" step="0.5" placeholder="3.0" />
+            </div>
+            <div class="form-group">
+                <label>Value</label>
+                <input type="number" id="obsValue" step="0.1" placeholder="6.2" />
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="addObservation()">＋ Record</button>
+
+        <div class="divider"></div>
+
+        <h3>📋 Observations</h3>
+        <div id="obsList" class="obs-list">
+            <div class="empty" style="padding:20px"><span style="font-size:0.8rem;color:var(--text-muted)">No observations yet</span></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <button class="btn btn-secondary" onclick="getPredictions()">📈 Generate Predictions</button>
+        <div style="height:8px"></div>
+        <button class="btn btn-secondary" onclick="getAlerts()">🚨 Check Alerts</button>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <!-- Stats Cards -->
+        <div class="cards" id="statsCards">
+            <div class="card">
+                <div class="label">Best ML Method</div>
+                <div class="value" id="cardMethod">—</div>
+                <div class="sub" id="cardR2"></div>
+            </div>
+            <div class="card">
+                <div class="label">Training Samples</div>
+                <div class="value" id="cardSamples">—</div>
+                <div class="sub">NHANES 0-36mo</div>
+            </div>
+            <div class="card">
+                <div class="label">90% CI Width</div>
+                <div class="value" id="cardCI">—</div>
+                <div class="sub">Conformal prediction</div>
+            </div>
+            <div class="card">
+                <div class="label">Infants Tracked</div>
+                <div class="value" id="cardInfants">0</div>
+                <div class="sub" id="cardObs">0 observations</div>
+            </div>
+        </div>
+
+        <!-- Growth Chart -->
+        <div class="chart-section">
+            <h3>📊 Growth Chart</h3>
+            <div class="chart-controls">
+                <button class="chip active" data-metric="weight_for_age" onclick="switchMetric(this)">Weight</button>
+                <button class="chip" data-metric="length_for_age" onclick="switchMetric(this)">Length</button>
+                <button class="chip" data-metric="head_circumference_for_age" onclick="switchMetric(this)">Head Circ</button>
+            </div>
+            <div id="growthChart" style="width:100%;height:420px;"></div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="chart-section" id="alertSection" style="display:none">
+            <h3>🚨 Clinical Alerts</h3>
+            <div id="alertList" class="alert-list"></div>
+        </div>
+
+        <!-- Model Comparison -->
+        <div class="chart-section">
+            <h3>🏆 ML Method Comparison (5-Fold CV)</h3>
+            <div class="table-wrap">
+                <table id="comparisonTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Method</th>
+                            <th>R²</th>
+                            <th>RMSE</th>
+                            <th>MAE</th>
+                            <th>Pearson r</th>
+                            <th>Cal. Slope</th>
+                            <th>90% CI Width</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonBody">
+                        <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let currentInfantId = null;
+let currentMetric = 'weight_for_age';
+let observations = [];
+let predictions = [];
+
+// ── Toast ──
+function toast(msg, error = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (error ? ' error' : '');
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── API calls ──
+async function api(path, options = {}) {
+    try {
+        const r = await fetch(API + path, {
+            headers: { 'Content-Type': 'application/json' },
+            ...options
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || r.statusText);
+        return data;
+    } catch (e) {
+        toast(e.message, true);
+        throw e;
+    }
+}
+
+// ── Init ──
+async function init() {
+    try {
+        const health = await api('/health');
+        document.getElementById('statusText').textContent =
+            health.model_loaded ? 'System Online' : 'No Model';
+        document.getElementById('modelBadge').textContent =
+            health.best_method || '—';
+        document.getElementById('cardInfants').textContent = health.infants_tracked;
+
+        // Load model info
+        const info = await api('/model/info');
+        const meta = info.metadata || {};
+        document.getElementById('cardMethod').textContent = meta.best_method || '—';
+        document.getElementById('cardR2').textContent = meta.best_r2
+            ? `R² = ${meta.best_r2.toFixed(4)}` : '';
+        document.getElementById('cardSamples').textContent =
+            meta.n_training_samples ? meta.n_training_samples.toLocaleString() : '—';
+        document.getElementById('cardCI').textContent = meta.conformal_ci_width_90
+            ? `±${(meta.conformal_ci_width_90 / 2).toFixed(2)} kg` : '—';
+
+        // Comparison table
+        if (info.comparison_table) {
+            const body = document.getElementById('comparisonBody');
+            body.innerHTML = info.comparison_table.map((row, i) => `
+                <tr class="${i === 0 ? 'best' : ''}">
+                    <td>${i + 1}</td>
+                    <td><strong>${row.Method}</strong></td>
+                    <td class="mono">${(row['R²'] || row.R2 || 0).toFixed(4)}</td>
+                    <td class="mono">${(row.RMSE || 0).toFixed(3)}</td>
+                    <td class="mono">${(row.MAE || 0).toFixed(3)}</td>
+                    <td class="mono">${(row['Pearson r'] || 0).toFixed(4)}</td>
+                    <td class="mono">${(row['Cal. Slope'] || 0).toFixed(3)}</td>
+                    <td class="mono">${(row['90% CI Width'] || 0).toFixed(3)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Draw empty chart with WHO curves
+        drawChart();
+    } catch (e) {
+        document.getElementById('statusText').textContent = 'Offline';
+    }
+}
+
+// ── Create Infant ──
+async function createInfant() {
+    const id = document.getElementById('infantId').value.trim();
+    const sex = document.getElementById('infantSex').value;
+    const bw = document.getElementById('birthWeight').value;
+    if (!id) return toast('Enter an Infant ID', true);
+
+    const body = { infant_id: id, sex: sex };
+    if (bw) body.birth_weight_kg = parseFloat(bw);
+
+    await api('/infants', { method: 'POST', body: JSON.stringify(body) });
+    currentInfantId = id;
+    observations = [];
+    predictions = [];
+    toast(`Registered: ${id}`);
+    updateObsList();
+    drawChart();
+}
+
+// ── Add Observation ──
+async function addObservation() {
+    if (!currentInfantId) return toast('Register an infant first', true);
+    const age = parseFloat(document.getElementById('obsAge').value);
+    const value = parseFloat(document.getElementById('obsValue').value);
+    const metric = document.getElementById('obsMetric').value;
+    if (isNaN(age) || isNaN(value)) return toast('Enter age and value', true);
+
+    const obs = await api(`/infants/${currentInfantId}/observations`, {
+        method: 'POST',
+        body: JSON.stringify({ age_months: age, metric: metric, value: value })
+    });
+    observations.push(obs);
+    toast(`Recorded: ${metric.split('_')[0]} = ${value} at ${age}mo (z=${obs.z_score})`);
+    updateObsList();
+    drawChart();
+    updateInfantCount();
+}
+
+// ── Predictions ──
+async function getPredictions() {
+    if (!currentInfantId) return toast('Register an infant first', true);
+    const months = '3,6,9,12,15,18,21,24,30,36';
+    predictions = await api(
+        `/infants/${currentInfantId}/predict?metric=${currentMetric}&months=${months}`
+    );
+    toast(`${predictions.length} predictions generated`);
+    drawChart();
+}
+
+// ── Alerts ──
+async function getAlerts() {
+    if (!currentInfantId) return toast('Register an infant first', true);
+    const alerts = await api(`/infants/${currentInfantId}/alerts`);
+    const section = document.getElementById('alertSection');
+    const list = document.getElementById('alertList');
+
+    if (alerts.length === 0) {
+        section.style.display = 'block';
+        list.innerHTML = '<div class="alert info"><span class="icon">✅</span> No anomalies detected. Growth trajectory is within normal parameters.</div>';
+    } else {
+        section.style.display = 'block';
+        list.innerHTML = alerts.map(a => `
+            <div class="alert ${a.severity}">
+                <span class="icon">${a.severity === 'critical' ? '🔴' : '🟡'}</span>
+                <div>
+                    <strong>${a.metric}</strong> — ${a.anomaly_type}<br>
+                    <span style="color:var(--text-muted)">${a.message}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// ── Chart ──
+async function drawChart() {
+    const sex = document.getElementById('infantSex').value;
+    const metricLabels = {
+        weight_for_age: 'Weight (kg)',
+        length_for_age: 'Length (cm)',
+        head_circumference_for_age: 'Head Circumference (cm)'
+    };
+    const yLabel = metricLabels[currentMetric] || currentMetric;
+    const traces = [];
+    const pColors = ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.12)', 'rgba(79,195,247,0.25)', 'rgba(255,255,255,0.12)', 'rgba(255,255,255,0.08)'];
+    const pLabels = ['P3', 'P15', 'P50', 'P85', 'P97'];
+
+    // WHO percentile lines
+    try {
+        const who = await api(`/who/percentile-lines?metric=${currentMetric}&sex=${sex}`);
+        who.lines.forEach((line, i) => {
+            traces.push({
+                x: line.points.map(p => p.age_months),
+                y: line.points.map(p => p.value),
+                mode: 'lines',
+                name: pLabels[i],
+                line: { color: pColors[i], width: i === 2 ? 2 : 1, dash: i === 2 ? 'solid' : 'dot' },
+                hoverinfo: 'name+y',
+            });
+        });
+    } catch (e) {}
+
+    // Observations
+    const metricObs = observations.filter(o => o.metric === currentMetric);
+    if (metricObs.length > 0) {
+        traces.push({
+            x: metricObs.map(o => o.age_months),
+            y: metricObs.map(o => o.value),
+            mode: 'markers+lines',
+            name: 'Observed',
+            marker: { color: '#4fc3f7', size: 10, symbol: 'circle' },
+            line: { color: '#4fc3f7', width: 2 },
+        });
+    }
+
+    // Predictions with CI
+    if (predictions.length > 0) {
+        const pred = predictions.filter(p => p.metric === currentMetric);
+        if (pred.length > 0) {
+            // CI band
+            traces.push({
+                x: [...pred.map(p => p.age_months), ...pred.map(p => p.age_months).reverse()],
+                y: [...pred.map(p => p.ci_upper), ...pred.map(p => p.ci_lower).reverse()],
+                fill: 'toself',
+                fillcolor: 'rgba(255,167,38,0.12)',
+                line: { color: 'transparent' },
+                name: '90% CI',
+                showlegend: true,
+                hoverinfo: 'skip',
+            });
+            // Prediction line
+            traces.push({
+                x: pred.map(p => p.age_months),
+                y: pred.map(p => p.predicted_value),
+                mode: 'markers+lines',
+                name: `ML Prediction (${pred[0].method})`,
+                marker: { color: '#ffa726', size: 8, symbol: 'diamond' },
+                line: { color: '#ffa726', width: 2, dash: 'dash' },
+            });
+        }
+    }
+
+    const layout = {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { family: 'DM Sans', color: '#7d8ca1', size: 11 },
+        margin: { l: 50, r: 20, t: 10, b: 45 },
+        xaxis: {
+            title: 'Age (months)', gridcolor: 'rgba(255,255,255,0.05)',
+            range: [0, 37], dtick: 6, zeroline: false,
+        },
+        yaxis: {
+            title: yLabel, gridcolor: 'rgba(255,255,255,0.05)', zeroline: false,
+        },
+        legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(20,26,36,0.85)', borderwidth: 0, font: { size: 10 } },
+        hovermode: 'x unified',
+    };
+
+    Plotly.newPlot('growthChart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function switchMetric(el) {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    currentMetric = el.dataset.metric;
+    predictions = [];
+    drawChart();
+}
+
+function updateObsList() {
+    const el = document.getElementById('obsList');
+    if (observations.length === 0) {
+        el.innerHTML = '<div style="font-size:0.78rem;color:var(--text-muted);text-align:center;padding:12px">No observations yet</div>';
+        return;
+    }
+    el.innerHTML = observations.map(o => {
+        const type = o.metric.includes('weight') ? 'weight' : o.metric.includes('length') ? 'length' : 'head';
+        const label = type === 'weight' ? 'Weight' : type === 'length' ? 'Length' : 'Head';
+        return `<div class="obs-item">
+            <span class="metric-tag ${type}">${label}</span>
+            <span class="mono">${o.value} @ ${o.age_months}mo</span>
+            <span style="color:var(--text-muted)">z=${o.z_score || '—'}</span>
+        </div>`;
+    }).join('');
+}
+
+async function updateInfantCount() {
+    try {
+        const data = await api('/infants');
+        document.getElementById('cardInfants').textContent = data.count;
+        const totalObs = data.infants.reduce((s, i) => s + i.observation_count, 0);
+        document.getElementById('cardObs').textContent = `${totalObs} observation${totalObs !== 1 ? 's' : ''}`;
+    } catch (e) {}
+}
+
+// Boot
+init();
+</script>
+</body>
+</html>
