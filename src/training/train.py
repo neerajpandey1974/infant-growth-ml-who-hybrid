@@ -82,8 +82,15 @@ def run_training():
 
     # Model 1 imputation (demographics only)
     m1_cols = MODEL1_FEATURES + ['weight_kg']
-    m1_data = nhanes_df[[c for c in m1_cols if c in nhanes_df.columns]].copy()
+    m1_available = [c for c in m1_cols if c in nhanes_df.columns]
+    m1_data = nhanes_df[m1_available].copy()
     m1_data = m1_data[m1_data['weight_kg'].notna()].copy()
+
+    # Drop columns that are entirely NaN (imputer can't handle them)
+    all_nan_cols = [c for c in m1_data.columns if m1_data[c].isna().all()]
+    if all_nan_cols:
+        print(f"  Dropping all-NaN columns from Model 1: {all_nan_cols}")
+        m1_data = m1_data.drop(columns=all_nan_cols)
 
     imputer_m1 = IterativeImputer(max_iter=10, random_state=42,
                                    sample_posterior=False)
@@ -91,14 +98,21 @@ def run_training():
         imputer_m1.fit_transform(m1_data),
         columns=m1_data.columns, index=m1_data.index
     )
-    print(f"  Model 1: {len(m1_imputed)} infants ({len(MODEL1_FEATURES)} features)")
+    print(f"  Model 1: {len(m1_imputed)} infants ({len(m1_data.columns)-1} features)")
 
     # Model 3 imputation (full features)
     m3_cols = MODEL3_FEATURES + ['weight_kg']
-    m3_data = nhanes_df[[c for c in m3_cols if c in nhanes_df.columns]].copy()
+    m3_available = [c for c in m3_cols if c in nhanes_df.columns]
+    m3_data = nhanes_df[m3_available].copy()
     m3_data = m3_data[
         m3_data['weight_kg'].notna() & m3_data['length_cm'].notna()
     ].copy()
+
+    # Drop columns that are entirely NaN
+    all_nan_cols_m3 = [c for c in m3_data.columns if m3_data[c].isna().all()]
+    if all_nan_cols_m3:
+        print(f"  Dropping all-NaN columns from Model 3: {all_nan_cols_m3}")
+        m3_data = m3_data.drop(columns=all_nan_cols_m3)
 
     imputer_m3 = IterativeImputer(max_iter=10, random_state=42,
                                    sample_posterior=False)
@@ -106,11 +120,14 @@ def run_training():
         imputer_m3.fit_transform(m3_data),
         columns=m3_data.columns, index=m3_data.index
     )
-    print(f"  Model 3: {len(m3_imputed)} infants ({len(MODEL3_FEATURES)} features)")
+    print(f"  Model 3: {len(m3_imputed)} infants ({len(m3_data.columns)-1} features)")
 
     # ── 4. Train 8 Methods ──
     print("\n[4/6] Training 8 ML methods on Model 3 features...")
     print("=" * 70)
+
+    # Use actual features present after NaN column removal
+    m3_features_actual = [c for c in m3_data.columns if c != 'weight_kg']
 
     method_configs = get_method_configs()
     all_models = {}
@@ -120,7 +137,7 @@ def run_training():
         print(f"  Training: {method_name}...", end=" ", flush=True)
         model = GrowthModel(
             f"Model 3: {method_name}",
-            MODEL3_FEATURES,
+            m3_features_actual,
             estimator=estimator
         )
         model.train(m3_imputed, 'weight_kg')
@@ -153,9 +170,10 @@ def run_training():
 
     # Also train Model 1 (demographics only) with Elastic Net
     from sklearn.linear_model import ElasticNetCV
+    m1_features_actual = [c for c in m1_data.columns if c != 'weight_kg']
     model1 = GrowthModel(
         "Model 1: Elastic Net (Demographics)",
-        MODEL1_FEATURES,
+        m1_features_actual,
         estimator=ElasticNetCV(
             l1_ratio=[0.1, 0.3, 0.5, 0.7, 0.9, 0.95, 0.99],
             alphas=None, cv=5, random_state=42, max_iter=10000, n_jobs=-1
@@ -206,8 +224,8 @@ def run_training():
         'n_training_samples': int(len(m3_imputed)),
         'n_nhanes_cycles': len(set(nhanes_df.get('cycle', []))),
         'n_methods_compared': len(all_models),
-        'model3_features': MODEL3_FEATURES,
-        'model1_features': MODEL1_FEATURES,
+        'model3_features': m3_features_actual,
+        'model1_features': m1_features_actual,
         'conformal_ci_width_90': float(
             2 * np.quantile(best_model.residuals, 0.90)
         ),
