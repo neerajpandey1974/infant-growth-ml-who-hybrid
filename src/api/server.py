@@ -24,20 +24,40 @@ from pathlib import Path
 from datetime import datetime, date
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 from typing import Optional, List
+import secrets
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.settings import MODELS_DIR, DATA_DIR, PORT, HOST, MODEL3_FEATURES
+from config.settings import AUTH_ENABLED, AUTH_USERNAME, AUTH_PASSWORD
 from src.models.who_engine import WHOZScoreEngine
 from src.models.growth_model import GrowthModel
 from src.models.predictor import GrowthPredictor
 from src.models.data_structures import InfantProfile
+
+# ── Auth ─────────────────────────────────────────────────────────
+security = HTTPBasic()
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """HTTP Basic Auth — only enforced when AUTH_ENABLED=true."""
+    if not AUTH_ENABLED:
+        return True
+    correct_user = secrets.compare_digest(credentials.username, AUTH_USERNAME)
+    correct_pass = secrets.compare_digest(credentials.password, AUTH_PASSWORD)
+    if not (correct_user and correct_pass):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return True
 
 # ── Global State ──────────────────────────────────────────────
 
@@ -96,6 +116,8 @@ async def lifespan(app: FastAPI):
 
 # ── App ──────────────────────────────────────────────────────
 
+_deps = [Depends(verify_credentials)] if AUTH_ENABLED else []
+
 app = FastAPI(
     title="Infant Growth Digital Twin API",
     description=(
@@ -105,6 +127,7 @@ app = FastAPI(
     ),
     version="3.0.0",
     lifespan=lifespan,
+    dependencies=_deps,
 )
 
 app.add_middleware(
