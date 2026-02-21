@@ -73,6 +73,9 @@ def run_training():
     # ── 3. Feature Engineering ──
     print("\n[3/6] Feature engineering + MICE imputation...")
 
+    # Binary encode sex
+    nhanes_df['sex_female'] = (nhanes_df['sex'] == 'female').astype(float)
+
     # One-hot encode race
     for r in [2, 3, 4, 5]:
         nhanes_df[f'race_{r}'] = (nhanes_df['race_eth'] == r).astype(float)

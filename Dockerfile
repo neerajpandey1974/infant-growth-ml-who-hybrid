@@ -24,7 +24,7 @@ RUN mkdir -p data/raw data/models
 
 # Train models at build time (downloads NHANES + trains 8 ML methods)
 # This ensures the Docker image ships with pre-trained models
-RUN python -m src.training.train
+RUN python -u -m src.training.train
 
 # Expose port
 EXPOSE 10000
